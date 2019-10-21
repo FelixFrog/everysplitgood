@@ -1,127 +1,151 @@
-// Copyright 2018 The Flutter team. All rights reserved.
-// Use of this source code is governed by a BSD-style license that can be
-// found in the LICENSE file.
+import 'dart:async';
+import 'dart:convert';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
-import 'package:english_words/english_words.dart';
+import 'package:http/http.dart' as http;
+
+Future<Races> fetchRaces() async {
+  final response =
+  await http.get('https://jsonplaceholder.typicode.com/posts/1');
+
+  if (response.statusCode == 200) {
+    // If the call to the server was successful, parse the JSON.
+    return Races.fromJson(json.decode(response.body));
+  } else {
+    // If that call was not successful, throw an error.
+    throw Exception('Failed to load post');
+  }
+}
+
+/*class Race {
+  final int userId;
+  final int id;
+  final String title;
+  final String body;
+
+  Race({this.userId, this.id, this.title, this.body});
+
+  factory Race.fromJson(Map<String, dynamic> json) {
+    return Race(
+      userId: json['userId'],
+      id: json['id'],
+      title: json['title'],
+      body: json['body'],
+    );
+  }
+} */
+
+class Races {
+  List<Competitions> competitions;
+
+  Races({this.competitions});
+
+  Races.fromJson(Map<String, dynamic> json) {
+    if (json['competitions'] != null) {
+      competitions = new List<Competitions>();
+      json['competitions'].forEach((v) {
+        competitions.add(new Competitions.fromJson(v));
+      });
+    }
+  }
+
+  Map<String, dynamic> toJson() {
+    final Map<String, dynamic> data = new Map<String, dynamic>();
+    if (this.competitions != null) {
+      data['competitions'] = this.competitions.map((v) => v.toJson()).toList();
+    }
+    return data;
+  }
+}
+
+class Competitions {
+  int id;
+  String name;
+  String organizer;
+  String date;
+  int timediff;
+  int multidaystage;
+  int multidayfirstday;
+
+  Competitions(
+      {this.id,
+        this.name,
+        this.organizer,
+        this.date,
+        this.timediff,
+        this.multidaystage,
+        this.multidayfirstday});
+
+  Competitions.fromJson(Map<String, dynamic> json) {
+    id = json['id'];
+    name = json['name'];
+    organizer = json['organizer'];
+    date = json['date'];
+    timediff = json['timediff'];
+    multidaystage = json['multidaystage'];
+    multidayfirstday = json['multidayfirstday'];
+  }
+
+  Map<String, dynamic> toJson() {
+    final Map<String, dynamic> data = new Map<String, dynamic>();
+    data['id'] = this.id;
+    data['name'] = this.name;
+    data['organizer'] = this.organizer;
+    data['date'] = this.date;
+    data['timediff'] = this.timediff;
+    data['multidaystage'] = this.multidaystage;
+    data['multidayfirstday'] = this.multidayfirstday;
+    return data;
+  }
+}
 
 void main() => runApp(MyApp());
 
-// #docregion MyApp
-class MyApp extends StatelessWidget {
-  // #docregion build
+class MyApp extends StatefulWidget {
+  MyApp({Key key}) : super(key: key);
+
+  @override
+  _MyAppState createState() => _MyAppState();
+}
+
+class _MyAppState extends State<MyApp> {
+  Future<Races> races;
+
+  @override
+  void initState() {
+    super.initState();
+    races = fetchRaces();
+  }
+
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'Startup Name Generator',
-      theme: ThemeData(          // Add the 3 lines from here...
-        primaryColor: Colors.white,
+      title: 'Fetch Data Example',
+      theme: ThemeData(
+        primarySwatch: Colors.deepOrange,
       ),
-      home: RandomWords(),
-    );
-  }
-// #enddocregion build
-}
-// #enddocregion MyApp
+      home: Scaffold(
+        appBar: AppBar(
+          title: Text('Fetch Data Example'),
+        ),
+        body: Center(
+          child: FutureBuilder<Races>(
+            future: races,
+            builder: (context, snapshot) {
+              if (snapshot.hasData) {
+                return Text(/*snapshot.data.competitions*/'Test');
+                // TODO print competition
+              } else if (snapshot.hasError) {
+                return Text("${snapshot.error}");
+              }
 
-// #docregion RWS-var
-class RandomWordsState extends State<RandomWords> {
-  final _suggestions = <WordPair>[];
-  final Set<WordPair> _saved = Set<WordPair>();
-  final _biggerFont = const TextStyle(fontSize: 18.0);
-  // #enddocregion RWS-var
-
-  // #docregion _buildSuggestions
-  Widget _buildSuggestions() {
-    return ListView.builder(
-        padding: const EdgeInsets.all(16.0),
-        itemBuilder: /*1*/ (context, i) {
-          if (i.isOdd) return Divider(); /*2*/
-
-          final index = i ~/ 2; /*3*/
-          if (index >= _suggestions.length) {
-            _suggestions.addAll(generateWordPairs().take(10)); /*4*/
-          }
-          return _buildRow(_suggestions[index]);
-        });
-  }
-  // #enddocregion _buildSuggestions
-
-  // #docregion _buildRow
-  Widget _buildRow(WordPair pair) {
-    final bool alreadySaved = _saved.contains(pair);
-    return ListTile(
-      title: Text(
-        pair.asPascalCase,
-        style: _biggerFont,
-      ),
-      trailing: Icon(
-        alreadySaved ? Icons.favorite : Icons.favorite_border,
-        color: alreadySaved ? Colors.red : null,
-      ),
-      onTap: () {
-        setState(() {
-          if (alreadySaved) {
-            _saved.remove(pair);
-          } else {
-            _saved.add(pair);
-          }
-        });
-      },
-    );
-  }
-  // #enddocregion _buildRow
-
-  // #docregion RWS-build
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: Text('Startup Name Generator'),
-        actions: <Widget>[
-          IconButton(icon: Icon(Icons.list), onPressed: _pushSaved),
-        ],
-      ),
-      body: _buildSuggestions(),
-    );
-  }
-  // #enddocregion RWS-build
-
-  void _pushSaved() {
-    Navigator.of(context).push(
-      MaterialPageRoute<void>(
-        // Add 20 lines from here...
-        builder: (BuildContext context) {
-          final Iterable<ListTile> tiles = _saved.map(
-                (WordPair pair) {
-              return ListTile(
-                title: Text(
-                  pair.asPascalCase,
-                  style: _biggerFont,
-                ),
-              );
+              // By default, show a loading spinner.
+              return CircularProgressIndicator();
             },
-          );
-          final List<Widget> divided = ListTile.divideTiles(
-            context: context,
-            tiles: tiles,
-          ).toList();
-
-          return Scaffold(
-            appBar: AppBar(
-              title: Text('Saved Suggestions'),
-            ),
-            body: ListView(children: divided),
-          );
-        },
+          ),
+        ),
       ),
     );
   }
-// #docregion RWS-var
-}
-// #enddocregion RWS-var
-
-class RandomWords extends StatefulWidget {
-  @override
-  RandomWordsState createState() => RandomWordsState();
 }
