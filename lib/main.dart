@@ -4,43 +4,23 @@ import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
+import 'package:fluttertoast/fluttertoast.dart';
 
 Future<Races> fetchRaces() async {
-  final response =
-  await http.get('https://jsonplaceholder.typicode.com/posts/1');
+  final response = await http.get(
+      'https://liveresultat.orientering.se/api.php?method=getcompetitions');
 
   if (response.statusCode == 200) {
-    // If the call to the server was successful, parse the JSON.
     return Races.fromJson(json.decode(response.body));
   } else {
-    // If that call was not successful, throw an error.
-    throw Exception('Failed to load post');
+    Fluttertoast.showToast(msg: 'Network error', gravity: ToastGravity.BOTTOM);
+    throw Exception('Network error');
   }
 }
 
-/*class Race {
-  final int userId;
-  final int id;
-  final String title;
-  final String body;
-
-  Race({this.userId, this.id, this.title, this.body});
-
-  factory Race.fromJson(Map<String, dynamic> json) {
-    return Race(
-      userId: json['userId'],
-      id: json['id'],
-      title: json['title'],
-      body: json['body'],
-    );
-  }
-} */
-
 class Races {
   List<Competitions> competitions;
-
   Races({this.competitions});
-
   Races.fromJson(Map<String, dynamic> json) {
     if (json['competitions'] != null) {
       competitions = new List<Competitions>();
@@ -70,12 +50,12 @@ class Competitions {
 
   Competitions(
       {this.id,
-        this.name,
-        this.organizer,
-        this.date,
-        this.timediff,
-        this.multidaystage,
-        this.multidayfirstday});
+      this.name,
+      this.organizer,
+      this.date,
+      this.timediff,
+      this.multidaystage,
+      this.multidayfirstday});
 
   Competitions.fromJson(Map<String, dynamic> json) {
     id = json['id'];
@@ -100,52 +80,84 @@ class Competitions {
   }
 }
 
-void main() => runApp(MyApp());
-
-class MyApp extends StatefulWidget {
-  MyApp({Key key}) : super(key: key);
-
-  @override
-  _MyAppState createState() => _MyAppState();
+void main() {
+  runApp(MaterialApp(
+    title: 'Everysplitgood',
+    home: HomeScreen(),
+  ));
 }
 
-class _MyAppState extends State<MyApp> {
-  Future<Races> races;
-
-  @override
-  void initState() {
-    super.initState();
-    races = fetchRaces();
-  }
+class HomeScreen extends StatelessWidget {
+  final races = fetchRaces();
 
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(
-      title: 'Fetch Data Example',
-      theme: ThemeData(
-        primarySwatch: Colors.deepOrange,
+    return Scaffold(
+      appBar: AppBar(title: Text('Home Screen')),
+      body: FutureBuilder<Races>(
+        future: races,
+        builder: (context, snapshot) {
+          if (snapshot.hasData) {
+            return Scrollbar(
+                child: ListView.separated(
+              itemCount: snapshot.data.competitions.length,
+              itemBuilder: (context, index) {
+                return ListTile(
+                  title: Text(snapshot.data.competitions[index].name),
+                  subtitle: snapshot.data.competitions[index].organizer != ""
+                      ? Text(snapshot.data.competitions[index].organizer)
+                      : null,
+                  trailing: Icon(Icons.keyboard_arrow_right),
+                  onTap: () {
+                    _navigateToRaceScreen(
+                        context, snapshot.data.competitions[index].id);
+                  },
+                );
+              },
+              separatorBuilder: (context, index) {
+                return Divider();
+              },
+            ));
+          } else if (snapshot.hasError) {
+            return Text("${snapshot.error}");
+          }
+          return Center(
+            child: CircularProgressIndicator(),
+          );
+        },
       ),
-      home: Scaffold(
-        appBar: AppBar(
-          title: Text('Fetch Data Example'),
-        ),
-        body: Center(
-          child: FutureBuilder<Races>(
-            future: races,
-            builder: (context, snapshot) {
-              if (snapshot.hasData) {
-                return Text(/*snapshot.data.competitions*/'Test');
-                // TODO print competition
-              } else if (snapshot.hasError) {
-                return Text("${snapshot.error}");
-              }
+    );
+  }
 
-              // By default, show a loading spinner.
-              return CircularProgressIndicator();
-            },
-          ),
+  void _navigateToRaceScreen(BuildContext context, id) {
+    Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (context) => RaceScreen(id: id),
+        ));
+  }
+}
+
+class RaceScreen extends StatelessWidget {
+  final int id;
+  RaceScreen({Key key, @required this.id}) : super(key: key);
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(title: Text('Race screen')),
+      body: Center(
+        child: RaisedButton(
+          child: Text(id.toString()),
+          onPressed: () {
+            _goBackToHomeScreen(context);
+          },
         ),
       ),
     );
+  }
+
+  void _goBackToHomeScreen(BuildContext context) {
+    Navigator.pop(context);
   }
 }
