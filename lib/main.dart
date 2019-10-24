@@ -18,6 +18,18 @@ Future<Races> fetchRaces() async {
   }
 }
 
+Future<Class> fetchClass(int id) async {
+  final response = await http.get(
+      'https://liveresultat.orientering.se/api.php?method=getclasses&comp=$id');
+
+  if (response.statusCode == 200) {
+    return Class.fromJson(json.decode(response.body));
+  } else {
+    Fluttertoast.showToast(msg: 'Network error', gravity: ToastGravity.BOTTOM);
+    throw Exception('Network error');
+  }
+}
+
 class Races {
   List<Competitions> competitions;
   Races({this.competitions});
@@ -80,18 +92,63 @@ class Competitions {
   }
 }
 
+class Class {
+  String status;
+  List<Classes> classes;
+  String hash;
+
+  Class({this.status, this.classes, this.hash});
+
+  Class.fromJson(Map<String, dynamic> json) {
+    status = json['status'];
+    if (json['classes'] != null) {
+      classes = new List<Classes>();
+      json['classes'].forEach((v) {
+        classes.add(new Classes.fromJson(v));
+      });
+    }
+    hash = json['hash'];
+  }
+
+  Map<String, dynamic> toJson() {
+    final Map<String, dynamic> data = new Map<String, dynamic>();
+    data['status'] = this.status;
+    if (this.classes != null) {
+      data['classes'] = this.classes.map((v) => v.toJson()).toList();
+    }
+    data['hash'] = this.hash;
+    return data;
+  }
+}
+
+class Classes {
+  String className;
+
+  Classes({this.className});
+
+  Classes.fromJson(Map<String, dynamic> json) {
+    className = json['className'];
+  }
+
+  Map<String, dynamic> toJson() {
+    final Map<String, dynamic> data = new Map<String, dynamic>();
+    data['className'] = this.className;
+    return data;
+  }
+}
+
 void main() {
   runApp(MaterialApp(
     title: 'Everysplitgood',
+    theme: ThemeData.dark(),
     home: HomeScreen(),
   ));
 }
 
 class HomeScreen extends StatelessWidget {
-  final races = fetchRaces();
-
   @override
   Widget build(BuildContext context) {
+    var races = fetchRaces();
     return Scaffold(
       appBar: AppBar(title: Text('Home Screen')),
       body: FutureBuilder<Races>(
@@ -105,12 +162,17 @@ class HomeScreen extends StatelessWidget {
                 return ListTile(
                   title: Text(snapshot.data.competitions[index].name),
                   subtitle: snapshot.data.competitions[index].organizer != ""
-                      ? Text(snapshot.data.competitions[index].organizer)
-                      : null,
+                      ? Text(snapshot.data.competitions[index].date
+                              .replaceAll(new RegExp(r'-'), '/') +
+                          ' · ' +
+                          snapshot.data.competitions[index].organizer)
+                      : Text(snapshot.data.competitions[index].date),
                   trailing: Icon(Icons.keyboard_arrow_right),
                   onTap: () {
                     _navigateToRaceScreen(
-                        context, snapshot.data.competitions[index].id);
+                        context,
+                        snapshot.data.competitions[index].id,
+                        snapshot.data.competitions[index].name);
                   },
                 );
               },
@@ -129,35 +191,90 @@ class HomeScreen extends StatelessWidget {
     );
   }
 
-  void _navigateToRaceScreen(BuildContext context, id) {
+  void _navigateToRaceScreen(BuildContext context, int id, String name) {
     Navigator.push(
         context,
         MaterialPageRoute(
-          builder: (context) => RaceScreen(id: id),
+          builder: (context) => RaceScreen(id: id, name: name),
         ));
   }
 }
 
 class RaceScreen extends StatelessWidget {
   final int id;
-  RaceScreen({Key key, @required this.id}) : super(key: key);
+  final String name;
+  RaceScreen({Key key, @required this.id, @required this.name})
+      : super(key: key);
+
+  @override
+  Widget build(BuildContext context) {
+    var classes = fetchClass(id);
+    return Scaffold(
+        appBar: AppBar(title: Text(name)),
+        body: FutureBuilder<Class>(
+            future: classes,
+            builder: (context, snapshot) {
+              if (snapshot.hasData) {
+                if (snapshot.data.classes.length < 1) {
+                  return Center(
+                    child: Text('No classes defined yet'),
+                  );
+                } else {
+                  return Scrollbar(
+                      child: ListView.separated(
+                    itemCount: snapshot.data.classes.length,
+                    itemBuilder: (context, index) {
+                      return ListTile(
+                        title: Text(snapshot.data.classes[index].className),
+                        trailing: Icon(Icons.keyboard_arrow_right),
+                        onTap: () {
+                          _navigateToRunnerScreen(context, id,
+                              snapshot.data.classes[index].className, name);
+                        },
+                      );
+                    },
+                    separatorBuilder: (context, index) {
+                      return Divider();
+                    },
+                  ));
+                }
+              } else if (snapshot.hasError) {
+                return Text("${snapshot.error}");
+              }
+              return Center(
+                child: CircularProgressIndicator(),
+              );
+            }));
+  }
+
+  void _navigateToRunnerScreen(
+      BuildContext context, int id, String classname, String name) {
+    Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (context) =>
+              RunnerScreen(id: id, classname: classname, name: name),
+        ));
+  }
+}
+
+class RunnerScreen extends StatelessWidget {
+  final int id;
+  final String name;
+  final String classname;
+  RunnerScreen(
+      {Key key,
+      @required this.id,
+      @required this.classname,
+      @required this.name})
+      : super(key: key);
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: Text('Race screen')),
-      body: Center(
-        child: RaisedButton(
-          child: Text(id.toString()),
-          onPressed: () {
-            _goBackToHomeScreen(context);
-          },
-        ),
-      ),
-    );
-  }
-
-  void _goBackToHomeScreen(BuildContext context) {
-    Navigator.pop(context);
+        appBar: AppBar(title: Text(classname)),
+        body: Center(
+          child: Text('Hi!'),
+        ));
   }
 }
