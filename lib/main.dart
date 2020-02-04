@@ -227,14 +227,28 @@ class Classes {
   }
 }
 
-void main() {
-  runApp(MaterialApp(
-    title: 'Everysplitgood',
-    home: HomeScreen(),
-  ));
+void main() => runApp(App());
+
+class App extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    return MaterialApp(
+      title: 'Everysplitgood',
+      home: Home(),
+    );
+  }
 }
 
-class HomeScreen extends StatelessWidget {
+int _selectedIndex = 1;
+
+class Home extends StatefulWidget {
+  @override
+  State<StatefulWidget> createState() {
+    return _HomeState();
+  }
+}
+
+class _HomeState extends State<Home> {
   @override
   Widget build(BuildContext context) {
     var races = fetchRaces();
@@ -242,6 +256,41 @@ class HomeScreen extends StatelessWidget {
         DateTime.now().year, DateTime.now().month, DateTime.now().day);
     return Scaffold(
       appBar: AppBar(title: Text('Home Screen')),
+      bottomNavigationBar: BottomNavigationBar(
+        items: const <BottomNavigationBarItem>[
+          BottomNavigationBarItem(
+            icon: Icon(Icons.star),
+            title: Text('Starred'),
+          ),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.home),
+            title: Text('Home'),
+          ),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.calendar_today),
+            title: Text('Schedule'),
+          ),
+        ],
+        currentIndex: _selectedIndex,
+        selectedItemColor: Theme.of(context).accentColor,
+        onTap: (int index) {
+          setState(() {
+            _selectedIndex = index;
+          });
+        },
+      ),
+      /*drawer: Drawer(child: ListView(
+        children: <Widget>[
+          ListTile(
+            title: Text("Races"),
+            trailing: Icon(Icons.arrow_forward),
+          ),
+          ListTile(
+            title: Text("Settings"),
+            trailing: Icon(Icons.arrow_forward),
+          ),
+        ],
+      ),),*/
       body: FutureBuilder<Races>(
         future: races,
         builder: (context, snapshot) {
@@ -258,7 +307,7 @@ class HomeScreen extends StatelessWidget {
                           .substring(5, 7)),
                       int.parse(snapshot.data.competitions[index].date
                           .substring(8, 10)));
-                  if (raceday.isBefore(today)) {
+                  if (!raceday.isAefore(today)) {
                     return ListTile(
                       /*leading: today == raceday
                             ? Icon(Icons.assistant_photo)
